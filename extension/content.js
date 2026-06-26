@@ -5,9 +5,11 @@
   let serverUrl = DEFAULT_SERVER;
   let scanTimer;
 
-  chrome.storage.sync.get(['serverUrl'], ({ serverUrl: url }) => {
-    serverUrl = url || DEFAULT_SERVER;
-  });
+  try {
+    chrome.storage.sync.get(['serverUrl'], ({ serverUrl: url }) => {
+      serverUrl = url || DEFAULT_SERVER;
+    });
+  } catch (e) { /* context invalidated on hot reload */ }
 
   function generateId() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -64,10 +66,12 @@
   }
 
   function saveEmail(id, subject, to) {
-    chrome.storage.local.get(['trackedEmails'], ({ trackedEmails = [] }) => {
-      trackedEmails.unshift({ id, subject, to, sentAt: Date.now(), status: 'sent', openedAt: null, openCount: 0 });
-      chrome.storage.local.set({ trackedEmails: trackedEmails.slice(0, 200) });
-    });
+    try {
+      chrome.storage.local.get(['trackedEmails'], ({ trackedEmails = [] }) => {
+        trackedEmails.unshift({ id, subject, to, sentAt: Date.now(), status: 'sent', openedAt: null, openCount: 0 });
+        chrome.storage.local.set({ trackedEmails: trackedEmails.slice(0, 200) });
+      });
+    } catch (e) { /* context invalidated */ }
   }
 
   function hookSendButton(btn) {
@@ -109,7 +113,7 @@
 
   function injectListBadges() {
     if (!isInSentView()) return;
-    chrome.storage.local.get(['trackedEmails'], ({ trackedEmails = [] }) => {
+    try { chrome.storage.local.get(['trackedEmails'], ({ trackedEmails = [] }) => {
       if (!trackedEmails.length) return;
       const bySubject = new Map(trackedEmails.map(e => [e.subject.toLowerCase().trim(), e]));
 
@@ -135,12 +139,20 @@
 
         bogEl.insertBefore(badge, subjectSpan);
       });
-    });
+    }); } catch (e) {
+      if (e.message?.includes('Extension context invalidated')) observer.disconnect();
+    }
+  }
+
+  function safeChrome(fn) {
+    try { fn(); } catch (e) {
+      if (e.message?.includes('Extension context invalidated')) observer.disconnect();
+    }
   }
 
   const observer = new MutationObserver(() => {
     clearTimeout(scanTimer);
-    scanTimer = setTimeout(scan, 300);
+    scanTimer = setTimeout(() => safeChrome(scan), 300);
     clearTimeout(badgeTimer);
     badgeTimer = setTimeout(injectListBadges, 400);
   });
