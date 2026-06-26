@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail Tracker",
+  "version": "1.0.0",
+  "description": "Track when recipients open your Gmail emails",
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": ["https://mail.google.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Gmail Tracker"
+  }
+}
