@@ -111,35 +111,68 @@
     return hash.startsWith('#sent') || hash.startsWith('#label/SENT') || hash.startsWith('#label/sent');
   }
 
+  function renderBadges(trackedEmails) {
+    const bySubject = new Map(trackedEmails.map(e => [e.subject.toLowerCase().trim(), e]));
+    document.querySelectorAll('tr.zA:not([data-gt-badge])').forEach(row => {
+      const bogEl = row.querySelector('.bog');
+      if (!bogEl) return;
+      const subjectSpan = bogEl.querySelector('span');
+      if (!subjectSpan) return;
+      const subject = subjectSpan.textContent.trim().toLowerCase();
+      const email = bySubject.get(subject);
+      if (!email) return;
+      row.setAttribute('data-gt-badge', '1');
+      const badge = document.createElement('span');
+      badge.className = `gt-list-badge ${email.status}`;
+      badge.textContent = email.status === 'opened'
+        ? `👁${email.openCount > 1 ? ' ×' + email.openCount : ''}`
+        : '📤';
+      badge.title = email.status === 'opened'
+        ? `Opened${email.openCount > 1 ? ' ×' + email.openCount : ''}`
+        : 'Not opened yet';
+      bogEl.insertBefore(badge, subjectSpan);
+    });
+  }
+
+  function refreshBadgesFromServer(trackedEmails) {
+    const pending = trackedEmails.filter(e => e.status !== 'opened').map(e => e.id);
+    if (!pending.length) return;
+    fetch(`${serverUrl}/status/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: pending }),
+      signal: AbortSignal.timeout(5000)
+    }).then(r => r.json()).then(({ results }) => {
+      let updated = false;
+      results.forEach(r => {
+        const email = trackedEmails.find(e => e.id === r.id);
+        if (email && r.opened && r.firstOpenedAt > email.sentAt + 15000) {
+          email.status = 'opened';
+          email.openedAt = r.firstOpenedAt;
+          email.openCount = r.openCount;
+          updated = true;
+        }
+      });
+      if (!updated) return;
+      try { chrome.storage.local.set({ trackedEmails }); } catch (e) { return; }
+      // Re-render updated rows
+      document.querySelectorAll('tr.zA[data-gt-badge]').forEach(row => {
+        row.removeAttribute('data-gt-badge');
+        row.querySelector('.gt-list-badge')?.remove();
+      });
+      renderBadges(trackedEmails);
+    }).catch(() => {});
+  }
+
   function injectListBadges() {
     if (!isInSentView()) return;
-    try { chrome.storage.local.get(['trackedEmails'], ({ trackedEmails = [] }) => {
-      if (!trackedEmails.length) return;
-      const bySubject = new Map(trackedEmails.map(e => [e.subject.toLowerCase().trim(), e]));
-
-      document.querySelectorAll('tr.zA:not([data-gt-badge])').forEach(row => {
-        const bogEl = row.querySelector('.bog');
-        if (!bogEl) return;
-        const subjectSpan = bogEl.querySelector('span');
-        if (!subjectSpan) return;
-        const subject = subjectSpan.textContent.trim().toLowerCase();
-        const email = bySubject.get(subject);
-        if (!email) return;
-
-        row.setAttribute('data-gt-badge', '1');
-
-        const badge = document.createElement('span');
-        badge.className = `gt-list-badge ${email.status}`;
-        badge.textContent = email.status === 'opened'
-          ? `👁${email.openCount > 1 ? ' ×' + email.openCount : ''}`
-          : '📤';
-        badge.title = email.status === 'opened'
-          ? `Opened${email.openCount > 1 ? ' ×' + email.openCount : ''}`
-          : 'Not opened yet';
-
-        bogEl.insertBefore(badge, subjectSpan);
+    try {
+      chrome.storage.local.get(['trackedEmails'], ({ trackedEmails = [] }) => {
+        if (!trackedEmails.length) return;
+        renderBadges(trackedEmails);
+        refreshBadgesFromServer(trackedEmails);
       });
-    }); } catch (e) {
+    } catch (e) {
       if (e.message?.includes('Extension context invalidated')) observer.disconnect();
     }
   }
