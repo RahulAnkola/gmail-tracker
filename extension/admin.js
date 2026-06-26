@@ -7,8 +7,23 @@ let refreshTimer;
 
 chrome.storage.sync.get(['serverUrl'], ({ serverUrl: url }) => {
   serverUrl = url || DEFAULT_SERVER;
+  document.getElementById('server-url-display').textContent = serverUrl;
+  checkServerHealth();
   load();
 });
+
+async function checkServerHealth() {
+  const el = document.getElementById('server-status');
+  try {
+    const res = await fetch(`${serverUrl}/health`, { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    el.textContent = `✓ Online · ${data.emails} email${data.emails !== 1 ? 's' : ''} recorded`;
+    el.style.color = '#22c55e';
+  } catch {
+    el.textContent = '✗ Unreachable';
+    el.style.color = '#ef4444';
+  }
+}
 
 function timeAgo(ts) {
   if (!ts) return '—';
@@ -49,7 +64,7 @@ async function fetchStatuses(emails) {
     let updated = false;
     results.forEach(r => {
       const email = emails.find(e => e.id === r.id);
-      if (email && r.opened && r.firstOpenedAt > email.sentAt + 15000) {
+      if (email && r.opened && r.lastOpenedAt > email.sentAt + 15000) {
         email.status = 'opened';
         email.openedAt = r.firstOpenedAt;
         email.openCount = r.openCount;

@@ -45,7 +45,7 @@ async function fetchStatuses(emails) {
     let updated = false;
     results.forEach(r => {
       const email = emails.find(e => e.id === r.id);
-      if (email && r.opened && r.firstOpenedAt > email.sentAt + 15000) {
+      if (email && r.opened && r.lastOpenedAt > email.sentAt + 15000) {
         email.status = 'opened';
         email.openedAt = r.firstOpenedAt;
         email.openCount = r.openCount;
