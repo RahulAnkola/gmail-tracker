@@ -1,66 +1,37 @@
 # Gmail Tracker Chrome Extension
 
-Tracks when recipients open your Gmail emails using a tracking pixel.
-
-## How it works
-
-1. When you send an email, the extension appends a 1×1 invisible image linked to your tracker server
-2. When the recipient opens the email (and loads images), the pixel fires → server logs the open
-3. The popup shows **📤 Sent** or **👁 Opened** (+ open count)
-
-> **Limitation:** Requires recipient's email client to load images. Many clients block images by default,
-> so "no open" doesn't guarantee unread. True SMTP delivery confirmation is not available this way.
+> **ABANDONED** — Pixel tracking does not work for Gmail → Gmail. See below.
 
 ---
 
-## Setup
+## Why this project is dead
 
-### 1. Start the tracker server
+This extension uses a 1×1 tracking pixel to detect when recipients open emails. The approach is fundamentally broken for Gmail recipients.
 
-```bash
-cd server
-npm install
-npm start
-# → http://localhost:3001
+**The problem:** Since 2013, Gmail proxies all images through Google's own servers (`mail-attachment.googleusercontent.com`). When a Gmail user receives an email with a tracking pixel:
+
+- Google's proxy pre-fetches the image at **delivery time**, not when the user actually opens the email
+- The pixel fires on Google's servers, not the recipient's device
+- Every tracked email appears "opened" immediately, regardless of whether it was actually read
+
+This makes open detection impossible to distinguish from Google's automated prefetch. The approach only works when the recipient uses a non-proxying email client (e.g. Outlook desktop, Apple Mail with images enabled) — not Gmail.
+
+## What would actually work
+
+**Link click tracking** is the only reliable alternative for Gmail recipients. Instead of a pixel, you embed a redirect link through your server:
+
+```
+https://your-server.com/r/<id>  →  302 redirect to actual URL
 ```
 
-For production, deploy to [Railway](https://railway.app), [Render](https://render.com),
-or [Fly.io](https://fly.io) (all have free tiers). Set `PORT` env var if needed.
-
-### 2. Load the Chrome extension
-
-1. Go to `chrome://extensions/`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked** → select the `extension/` folder
-
-### 3. Configure the server URL
-
-1. Open Gmail
-2. Click the Gmail Tracker icon in the Chrome toolbar
-3. Enter your server URL (e.g. `https://my-tracker.railway.app`)
-4. Click **Save**
+When the recipient clicks a link, your server logs the click and redirects them. Google cannot pre-fetch link clicks because it doesn't know which links will be clicked. The trade-off is you can only detect clicks, not passive opens.
 
 ---
 
-## Usage
+## Original approach (for reference)
 
-- Compose an email in Gmail — you'll see **✦ Tracking** next to the Send button
-- Send as normal; the extension intercepts the click and injects the pixel
-- Open the extension popup to see status per email
+1. Extension appended a 1×1 invisible image to outgoing emails, linked to a tracker server
+2. When the pixel loaded, the server logged the open with a timestamp
+3. The popup showed **📤 Sent** or **👁 Opened** (+ open count)
 
----
-
-## File structure
-
-```
-gmail-tracker/
-├── extension/
-│   ├── manifest.json     Extension config (MV3)
-│   ├── content.js        Hooks Gmail compose + injects pixel
-│   ├── background.js     Service worker (minimal)
-│   ├── popup.html/js     Tracker popup UI
-│   └── styles.css        Injected Gmail styles
-└── server/
-    ├── server.js         Express pixel + status API
-    └── package.json
-```
+The server and extension code remain in this repo as a reference for the architecture.
