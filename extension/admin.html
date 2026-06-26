@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gmail Tracker — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent-dim: #1e1f3a;
+      --green: #22c55e;
+      --green-dim: #0f2a1a;
+      --amber: #f59e0b;
+      --amber-dim: #2a1f05;
+      --red: #ef4444;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { font-size: 22px; }
+    .logo h1 { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+    .logo span { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px; font-size: 12px;
+      font-weight: 500; cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #4f52d9; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--border); color: var(--text); }
+    .btn-danger { background: transparent; color: var(--red); border: 1px solid #3a1a1a; }
+    .btn-danger:hover { background: #2a0f0f; }
+
+    #last-refresh { font-size: 11px; color: var(--muted); }
+
+    /* ── Main ── */
+    main { padding: 24px 28px; max-width: 1200px; margin: 0 auto; }
+
+    /* ── Stats ── */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #fff; line-height: 1; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.amber { color: var(--amber); }
+    .stat-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .search-wrap { position: relative; flex: 1; max-width: 320px; }
+    .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    #search {
+      width: 100%; padding: 8px 10px 8px 34px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px;
+    }
+    #search:focus { outline: none; border-color: var(--accent); }
+
+    .filter-select {
+      padding: 8px 12px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px; cursor: pointer;
+    }
+    .filter-select:focus { outline: none; border-color: var(--accent); }
+
+    .results-count { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 11px 16px; text-align: left;
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      background: #14161f;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th:first-child { padding-left: 20px; }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #1e2130; }
+    td { padding: 12px 16px; vertical-align: middle; }
+    td:first-child { padding-left: 20px; }
+
+    .td-subject {
+      font-weight: 500; color: #fff; max-width: 260px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .td-to { color: var(--muted); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .td-time { color: var(--muted); white-space: nowrap; font-size: 12px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .badge.opened { background: var(--green-dim); color: var(--green); }
+    .badge.sent { background: var(--accent-dim); color: #818cf8; }
+
+    .open-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--border); color: var(--text);
+      font-size: 11px; font-weight: 600;
+    }
+    .open-count.multi { background: var(--amber-dim); color: var(--amber); }
+
+    /* ── Empty state ── */
+    .empty {
+      padding: 60px 20px; text-align: center; color: var(--muted);
+    }
+    .empty-icon { font-size: 36px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; color: #4b5563; }
+    .empty small { font-size: 11px; display: block; margin-top: 4px; }
+
+    /* ── Progress bar ── */
+    .open-rate-bar {
+      height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden;
+    }
+    .open-rate-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.4s; }
+
+    /* ── Pulse dot ── */
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">📧</span>
+    <h1>Gmail Tracker <span>Admin</span></h1>
+  </div>
+  <div class="header-actions">
+    <div class="live-dot" title="Auto-refreshing"></div>
+    <span id="last-refresh">—</span>
+    <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button>
+    <button class="btn btn-danger" id="clear-btn">🗑 Clear All</button>
+  </div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total Tracked</div>
+      <div class="stat-value accent" id="stat-total">—</div>
+      <div class="stat-sub">emails sent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Opened</div>
+      <div class="stat-value green" id="stat-opened">—</div>
+      <div class="stat-sub">recipients opened</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Open Rate</div>
+      <div class="stat-value" id="stat-rate">—</div>
+      <div class="open-rate-bar"><div class="open-rate-fill" id="rate-fill" style="width:0%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value amber" id="stat-pending">—</div>
+      <div class="stat-sub">not yet opened</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="search" placeholder="Search by subject or recipient…">
+    </div>
+    <select class="filter-select" id="filter">
+      <option value="all">All emails</option>
+      <option value="opened">Opened</option>
+      <option value="sent">Not opened</option>
+    </select>
+    <span class="results-count" id="results-count"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>To</th>
+          <th>Status</th>
+          <th>Opens</th>
+          <th>Sent</th>
+          <th>Last Opened</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <tr><td colspan="6"><div class="empty"><div class="empty-icon">⏳</div><p>Loading…</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script src="admin.js"></script>
+</body>
+</html>

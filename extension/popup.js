@@ -108,6 +108,10 @@ chrome.storage.sync.get(['serverUrl'], ({ serverUrl: url }) => {
 
 document.getElementById('refresh').addEventListener('click', loadAndRender);
 
+document.getElementById('admin-btn').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('admin.html') });
+});
+
 document.getElementById('saveUrl').addEventListener('click', () => {
   const url = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
   if (!url) return;
